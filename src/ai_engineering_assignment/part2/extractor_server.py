@@ -7,6 +7,7 @@ from ai_engineering_assignment.settings import MainConfig
 mcp = FastMCP("Extractor")
 configs = MainConfig()  # loaded once at server startup
 
+
 @mcp.tool()
 def extract_data(user_query: str, doc_json_path: str):
     """
@@ -21,6 +22,7 @@ def extract_data(user_query: str, doc_json_path: str):
         doc_json_path=doc_json_path,
     )
     return query.query(user_query=user_query)
+
 
 @mcp.tool()
 def parse_date(date_string: str) -> str:
@@ -39,8 +41,13 @@ def parse_date(date_string: str) -> str:
     try:
         parsed = dateutil_parser.parse(date_string)
         return parsed.strftime("%Y-%m-%d")
-    except (ValueError, OverflowError, TypeError) as e: # dateutil.parser.parse can raise these errors
+    except (
+        ValueError,
+        OverflowError,
+        TypeError,
+    ) as e:  # dateutil.parser.parse can raise these errors
         return f"Unable to parse '{date_string}': {e}"
+
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

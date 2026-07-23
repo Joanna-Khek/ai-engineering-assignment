@@ -1,29 +1,33 @@
 import os
 import yaml
 from typing import Literal
-from dotenv import dotenv_values
-from loguru import logger
 from pathlib import Path
 from pydantic import BaseModel, Field
 
+
 class DataConfig(BaseModel):
     source: str
+
 
 class DoclingConfig(BaseModel):
     use_flash_attention: bool = Field(default=False)
     device: Literal["cuda", "cpu"] = Field(default="cuda")
 
+
 class EmbeddingConfig(BaseModel):
     model: str
     max_tokens: int
 
+
 class LLMConfig(BaseModel):
     model: str
+
 
 class VLMConfig(BaseModel):
     model: str
     scale: float
     picture_area_threshold: float
+
 
 class AppConfig(BaseModel):
     data: DataConfig
@@ -35,6 +39,7 @@ class AppConfig(BaseModel):
 
 class MainConfig:
     """Main configuration class to hold all settings"""
+
     def __init__(self):
         self.PACKAGE_ROOT = self._get_file_path().parent
         self.ROOT = self.PACKAGE_ROOT.parent.parent
@@ -42,7 +47,7 @@ class MainConfig:
         self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
         self.raw_config = self._fetch_config_from_yaml(file_path=self.CONFIG_FILE_PATH)
         self.app = AppConfig(**self.raw_config)
-        
+
     def _get_file_path(self) -> Path:
         return Path(__file__).resolve()
 
