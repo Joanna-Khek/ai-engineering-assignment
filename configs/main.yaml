@@ -1,0 +1,18 @@
+data:
+  source: "https://isomer-user-content.by.gov.sg/153/20f8e128-58fa-44ea-a109-f2dec3995271/fy2024_analysis_of_revenue_and_expenditure.pdf"
+
+docling:
+  use_flash_attention: False
+  device: "cuda" # cpu or cuda
+
+embedding:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  max_tokens: 512
+
+llm:
+  model: "claude-haiku-4-5-20251001"
+
+vlm:
+  model: "ibm-granite/granite-vision-3.3-2b"
+  scale: 1.0
+  picture_area_threshold: 0.02
