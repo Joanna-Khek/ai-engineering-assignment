@@ -1,12 +1,12 @@
 import os
 import json
+import uuid
 from pathlib import Path
 from loguru import logger
 
 from PIL import Image
 from IPython.display import display
 
-from PIL import ImageDraw
 from collections import defaultdict
 
 from langchain_anthropic import ChatAnthropic
@@ -18,6 +18,7 @@ from docling_core.types.doc.document import DoclingDocument
 from ai_engineering_assignment.part1.prompts import SYSTEM_PROMPT_TEMPLATE
 from ai_engineering_assignment.settings import MainConfig
 from ai_engineering_assignment.part1.schema.query import ExtractedField
+from ai_engineering_assignment.part1.visual_grounding import draw_multiple_bboxes
 
 
 class Query:
@@ -33,9 +34,12 @@ class Query:
         self.model = ChatAnthropic(
             model_name=self.configs.app.llm.model,
             api_key=self.configs.ANTHROPIC_API_KEY,
-        )
+        )  # type: ignore[call-arg]
 
         self.structured_model = self.model.with_structured_output(ExtractedField)
+
+        # Because the full version is over 1M tokens, we create a lean version,
+        # which extracts only the key fields important for the LLM.
         self.lean_doc_json = json.dumps(self.build_lean_payload(doc=self.doc_json))
 
         logger.debug(
@@ -66,85 +70,74 @@ class Query:
 
         return items
 
-    @staticmethod
-    def draw_multiple_bboxes(doc, items, highlight_alpha=90):
-        """Draw bounding boxes on the rendered image for selected chunks"""
-        page_no = items[0].prov[0].page_no
-        page = doc.pages[page_no]
-        pil_image = page.image.pil_image.copy().convert("RGBA")
+    def _generate_image_data(self, result: ExtractedField):
+        """Resolve references and prepare visual grounding data."""
 
-        scale_x = pil_image.width / page.size.width
-        scale_y = pil_image.height / page.size.height
-
-        # Transparent overlay for the yellow highlight fill
-        overlay = Image.new("RGBA", pil_image.size, (0, 0, 0, 0))
-        overlay_draw = ImageDraw.Draw(overlay)
-
-        for item in items:
-            bbox = item.prov[0].bbox.to_top_left_origin(page_height=page.size.height)
-            left, top, right, bottom = (
-                bbox.l * scale_x,
-                bbox.t * scale_y,
-                bbox.r * scale_x,
-                bbox.b * scale_y,
-            )
-
-            # Semi-transparent yellow fill (highlighter effect)
-            overlay_draw.rectangle(
-                [(left, top), (right, bottom)], fill=(255, 255, 0, highlight_alpha)
-            )
-
-        # Composite the highlight overlay onto the base image
-        pil_image = Image.alpha_composite(pil_image, overlay)
-
-        # Draw solid red borders + labels on top, after compositing
-        draw = ImageDraw.Draw(pil_image)
-        for item in items:
-            bbox = item.prov[0].bbox.to_top_left_origin(page_height=page.size.height)
-            left, top, right, bottom = (
-                bbox.l * scale_x,
-                bbox.t * scale_y,
-                bbox.r * scale_x,
-                bbox.b * scale_y,
-            )
-
-            draw.rectangle([(left, top), (right, bottom)], outline="red", width=3)
-            draw.text((left, max(top - 15, 0)), item.label, fill="red")
-
-        return pil_image.convert(
-            "RGB"
-        )  # convert back for saving as JPEG/normal display
-
-    def _generate_images(self, result: ExtractedField) -> list[str]:
-        """Render the images with the bounding boxes"""
         resolved_items = []
         for ref in result.self_refs:
             try:
                 item = RefItem(cref=ref).resolve(self.doc_json)
-                resolved_items.append(item)
+                resolved_items.append((ref, item))
             except Exception as e:
-                print(f"Error resolving {ref}: {type(e).__name__}: {e}")
+                logger.warning(f"Error resolving {ref}: {type(e).__name__}: {e}")
 
         if not resolved_items:
-            print("No resolved items to show.")
-            return []
+            logger.debug("No resolved items to show.")
+            return [], {}
 
-        # Group items by the page they appear on
+        # Group items by page
         by_page = defaultdict(list)
-        for item in resolved_items:
+        refs_by_page = defaultdict(list)
+
+        for ref, item in resolved_items:
             page_no = item.prov[0].page_no
             by_page[page_no].append(item)
+            refs_by_page[page_no].append(ref)
+
+        run_id = uuid.uuid4()
 
         saved_paths = []
+        self_ref_image_paths = {}
+
         for page_no, items in sorted(by_page.items()):
-            img = self.draw_multiple_bboxes(self.doc_json, items)
-            path = os.path.join(self.output_dir, f"page_{page_no}.png")
-            img.save(path)
-            saved_paths.append(path)
+            # Needed by draw_multiple_bboxes()
+            ref_lookup = {
+                item.self_ref: ref
+                for ref, item in resolved_items
+                if item.prov[0].page_no == page_no
+            }
 
-        return saved_paths
+            for ref in refs_by_page[page_no]:
+                img = draw_multiple_bboxes(
+                    doc=self.doc_json,
+                    items=items,
+                    ref_lookup=ref_lookup,
+                    selected_ref=ref,
+                )
 
-    def query(self, user_query: str) -> dict:
+                filename = (
+                    f"page_{page_no}_"
+                    f"{ref.replace('/', '_').replace('#', '')}_"
+                    f"{run_id}.png"
+                )
+
+                path = os.path.join(self.output_dir, filename)
+
+                img.save(path)
+
+                saved_paths.append(path)
+                self_ref_image_paths[ref] = path
+
+        return (
+            saved_paths,
+            self_ref_image_paths,
+        )
+
+    # def _generate_images(self, result: ExtractedField):
+    #     image_paths, _, _ = self._generate_image_data(result)
+    #     return image_paths
+
+    def query(self, user_query: str, show_images: bool = False) -> dict:
         messages = [
             SystemMessage(
                 content=[
@@ -163,15 +156,24 @@ class Query:
         ]
 
         result = self.structured_model.invoke(messages)
-        image_paths = self._generate_images(result=result)
+        image_paths, self_ref_image_paths = self._generate_image_data(result=result)
 
-        # Display the visual groundings
-        for path in image_paths:
-            display(Image.open(path))
+        if show_images:  # only in notebook
+            for path in image_paths:
+                image = Image.open(path)
+
+                # Scale to 50%
+                image = image.resize(
+                    (image.width // 2, image.height // 2),
+                    Image.Resampling.LANCZOS,
+                )
+
+                display(image)
 
         logger.info(f"Answer: {result.model_dump()["value"]}")
 
         return {
             "extraction": result.model_dump(),
             "image_paths": image_paths,
+            "self_ref_image_paths": self_ref_image_paths,
         }
