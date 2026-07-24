@@ -1,5 +1,13 @@
-PICTURE_DESCRIPTION_PROMPT = """Describe this chart or figure in detail,
-including any trends, axis labels, and key data points."""
+PICTURE_DESCRIPTION_PROMPT = """Describe this chart or figure in detail. Include:
+- The chart type (bar, line, pie, scatter, etc.)
+- The title, if present
+- The x-axis and y-axis labels and their units
+- All category or series/legend names
+- Approximate or exact values for each data point or bar
+- Any visible trend, comparison, or notable pattern (e.g., highest/lowest values, growth, decline)
+
+Be specific and quantitative rather than general. Do not skip numeric values even if you have to estimate them.
+"""
 
 
 SYSTEM_PROMPT_TEMPLATE = """You are a careful document extraction assistant.
