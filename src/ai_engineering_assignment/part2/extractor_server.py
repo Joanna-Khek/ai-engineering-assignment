@@ -18,9 +18,7 @@ def extract_data(user_query: str, doc_json_path: str):
         user_query (str): A natural-language question describing what to extract from the document
         doc_json_path (str): Absolute file path to the Docling JSON export of the document to search
     """
-    query = Query(
-        doc_json_path=doc_json_path,
-    )
+    query = Query(doc_json_path=doc_json_path)
     return query.query(user_query=user_query)
 
 
