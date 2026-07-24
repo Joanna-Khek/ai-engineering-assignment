@@ -1,5 +1,6 @@
 data:
   source: "https://isomer-user-content.by.gov.sg/153/20f8e128-58fa-44ea-a109-f2dec3995271/fy2024_analysis_of_revenue_and_expenditure.pdf"
+  processed: "7612900673194843087.json"
 
 docling:
   use_flash_attention: false
@@ -14,5 +15,5 @@ llm:
 
 vlm:
   model: "ibm-granite/granite-vision-3.3-2b"
-  scale: 1.0
+  scale: 2.0
   picture_area_threshold: 0.02
