@@ -6,15 +6,15 @@ from docling.datamodel.base_models import InputFormat
 from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
 from docling.datamodel.pipeline_options import (
     PdfPipelineOptions,
-    PictureDescriptionVlmOptions,
+    TableStructureOptions,
     TableFormerMode,
 )
+from docling.datamodel.chart_extraction_options import ChartExtractionModelOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 
 from docling_core.types.doc.document import DoclingDocument
 
 from ai_engineering_assignment.settings import MainConfig
-from ai_engineering_assignment.part1 import prompts
 
 
 class ExtractDocument:
@@ -34,25 +34,19 @@ class ExtractDocument:
             device=device, cuda_use_flash_attention2=use_flash_attention
         )
 
-    def _set_up_picture_description_config(
-        self, model_name: str, scale: float, prompt: str, picture_threshold: float
-    ) -> None:
+    def _set_up_chart_description_config(self):
         """
-        Since the document has charts, we want to set up the picture description option in docling
-        to turn the charts into text descriptions
-
-        Args:
-            model_name (str): The vision language model to be used to generate the description
-            scale (float): The scale of the image to be sent to the vision language model
-            prompt (str): The prompt to be sent to the vision language model to generate the description
-            picture_threshold (float): Minimum picture area as fraction of page area (0.0-1.0) to trigger description. Pictures smaller than this threshold are skipped.
+        The document contains pie chart, bar chart and line chart. We use this configuration
+        to turn the charts into text descriptions.
         """
+        self.chart_description_options = ChartExtractionModelOptions(chart2summary=True)
 
-        self.picture_description_options = PictureDescriptionVlmOptions(
-            repo_id=model_name,
-            prompt=prompt,
-            scale=scale,
-            picture_area_threshold=picture_threshold,
+    def _set_up_table_config(self):
+        # Since we have many tables, we should go for the accurate option.
+        # Since document is a digital PDF, we can set cell matching to true.
+        self.table_structure_options = TableStructureOptions(
+            mode=TableFormerMode.ACCURATE,
+            do_cell_matching=True,
         )
 
     def _set_up_docling_configs(self):
@@ -63,26 +57,32 @@ class ExtractDocument:
             device=self.configs.app.docling.device,
         )
 
-        # 2. Picture Description Configs (for the charts)
-        self._set_up_picture_description_config(
-            model_name=self.configs.app.vlm.model,
-            scale=self.configs.app.vlm.scale,
-            prompt=prompts.PICTURE_DESCRIPTION_PROMPT,
-            picture_threshold=self.configs.app.vlm.picture_area_threshold,
-        )
+        # 2. Picture Description Configs
+        # self._set_up_picture_description_config(
+        #     model_name=self.configs.app.vlm.model,
+        #     scale=self.configs.app.vlm.scale,
+        #     prompt=prompts.PICTURE_DESCRIPTION_PROMPT,
+        #     picture_threshold=self.configs.app.vlm.picture_area_threshold,
+        # )
+
+        # 3. Chart Description Configs
+        self._set_up_chart_description_config()
+
+        # 4. Table Configs
+        self._set_up_table_config()
 
         # PDF Pipeline
         self.pipeline_options = PdfPipelineOptions(
             accelerator_options=self.accelerator_options,
-            do_picture_description=True,
-            picture_description_options=self.picture_description_options,
+            do_chart_extraction=True,
+            chart_extraction_options=self.chart_description_options,
             do_table_structure=True,
+            table_structure_options=self.table_structure_options,
             generate_page_images=True,
-            images_scale=1.0,
+            generate_picture_images=True,
+            images_scale=2.0,
         )
-
-        # Since we have many tables in the document
-        self.pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE
+        logger.debug(f"Pipeine: {self.pipeline_options}")
 
     def _save_result(self, doc: DoclingDocument, output_dir: Path):
         """Save the extracted content into a json file locally"""
