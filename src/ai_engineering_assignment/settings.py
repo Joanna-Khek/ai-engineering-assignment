@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class DataConfig(BaseModel):
     source: str
+    processed: str
 
 
 class DoclingConfig(BaseModel):
