@@ -1,4 +1,4 @@
-# Table of content
+# Table of Contents
 | Section | Description |
 | :--- | :--- |
 | [Requirements](#requirements) | Things to install |
