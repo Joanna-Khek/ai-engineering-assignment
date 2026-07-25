@@ -133,10 +133,6 @@ class Query:
             self_ref_image_paths,
         )
 
-    # def _generate_images(self, result: ExtractedField):
-    #     image_paths, _, _ = self._generate_image_data(result)
-    #     return image_paths
-
     def query(self, user_query: str, show_images: bool = False) -> dict:
         messages = [
             SystemMessage(
