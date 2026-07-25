@@ -65,7 +65,7 @@ To run part 1, please refer to `notebooks/part1.ipynb`.
 | :--- | :--- |
 | Step 1: Understand the document  | Just an introductory step to understand the data. Nothing to run. |
 | Step 2: Extracting the document | Note that the total runtime for this step is about 60 mins. I have provided the extracted json content in the `/data` folder so this step is not necessary to run. |
-| Step 3: Querying the document | Run the cells in this step to get the answers to the five queries. Not sure if there is a typo with Query 1 as it seems like the we should query for FY2023 instead of 2024? Note: Not sure when to use Financial Year 2023 and when to use 2024 |
+| Step 3: Querying the document | Run the cells in this step to get the answers to the five queries. For query 1 and 2, not sure if there is a typo as it seems like the we should query for FY2023 instead of 2024? |
 
 ## 1.2 Understanding the data source
 There is only one document and it consists of 37 pages. Since it is relatively short, a vector database might not be necessary.
@@ -84,7 +84,6 @@ The docling pipeline consists of the following components:
 | Chart Extraction | Since there are bar graphs, line charts and pie charts in the document, in order to query it using natural language, we convert it to structured data and a summary. This is done via vision language model `granite-vision-v4` |
 | Table Extraction | There are many tables in the document so it is important that we parse the table accurately. Docling's `do_table_structure` allows us to extract and reconstruct the table/ |
 | Generate Page Images | To verify the results, it is often best practice to generate visual groundings. This option allows the image to be encoded in the JSON file as a base64 string.|
-
 | Generate Picture Images | Chart extraction operates on individual picture crops rather than full page. Hence, this component helps in saving the cropped image for each detected chart. |
 
 > Note: The total time for extraction took 63 mins. I have included the extracted .json in the `/data` folder so we can just directly read the json file to generate the results.
@@ -102,7 +101,7 @@ With those two considerations in mind, I decided to use the  `sentence-transform
 ## 1.5 Generative model choice
 I am using Anthropic's API and there are a few models to choose from. I chose the Claude Haiku 4.5 model as our application is relatively simple and does not require much complex reasoning. It is also the cheapest and fastest.
 
-To cut down on the total number of tokens in the docling document, I kept only the fields necessary for the LLM to generate an answer such as the text, labels, and reference (for visual grounding). This brought the total context down from 1M to 32K tokens, which fits comfortably within the Claude Haiku model's context window. This leaner JSON is what gets sent to the LLM as context.
+To cut down on the total number of tokens in the docling document, I kept only the fields necessary for the LLM to generate an answer such as the text, labels, and reference (for visual grounding). This brought the total context down from 1M to 32K tokens, which fits comfortably within the Claude Haiku model's context window (200K). This leaner JSON is what gets sent to the LLM as context.
 
 ## 1.6 System prompt prompt caching
 To save on token costs, I placed the document (in the form of a path) in the system prompt, since it remains identical across every query. Because prompt caching works by reusing previously processed tokens for content that hasn't changed, placing static elements like the document path at the start of the prompt (in the system prompt) maximizes the portion of the request that can be cached, significantly reducing the number of tokens billed on each subsequent call.
@@ -135,7 +134,7 @@ When a query comes in, the LLM decides whether any tools are required to answer 
 
 # Part 3: Multi-Agent Supervisor
 ## 3.1 How to run?
-To run part 1, please refer to `notebooks/part1.ipynb`.
+To run part 3, please refer to `notebooks/part3.ipynb`.
 | Step | Comments |
 | :--- | :--- |
 | Step 1: Build the graph  | Run this section to build the graph. The graph can be found in `src/ai_engineering_assignment/part3/graph.py`  |
